@@ -1,14 +1,18 @@
+import os
 import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-TOKEN = "YOUR_BOT_TOKEN"
-ADMIN_ID = ID  # твой telegram id
+TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
+
+# --- дальше код БЕЗ изменений ---
+
 
 # ------------------ ФЕЙКОВАЯ БАЗА ------------------
 
@@ -139,6 +143,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 

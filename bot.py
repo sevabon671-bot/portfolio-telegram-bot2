@@ -12,8 +12,8 @@ import os
 
 
 
-API_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
+API_TOKEN = '8211878720:AAH4hdC3g1VvETD_idbNFnGWqyLsmv4jt6Y'
+ADMIN_ID = "5213273710"
 
 logging.basicConfig(level=logging.INFO)
 
@@ -80,3 +80,4 @@ async def get_comment(message: types.Message, state: FSMContext):
 if __name__ == "__main__":
     print("🤖 Бот запущен и ждёт сообщения...")
     executor.start_polling(dp, skip_updates=True)
+

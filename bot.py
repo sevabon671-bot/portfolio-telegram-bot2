@@ -1,21 +1,24 @@
 import os
 import asyncio
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery
-from aiogram.filters import Command
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
+from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+# ------------------ НАСТРОЙКИ ------------------
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("TG_ADMIN_ID"))
 
-
-bot = Bot(TOKEN)
+bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# --- дальше код БЕЗ изменений ---
-
-
-# ------------------ ФЕЙКОВАЯ БАЗА ------------------
+# ------------------ ДАННЫЕ ------------------
 
 PRODUCTS = {
     1: {"name": "Подписка на канал", "price": 500},
@@ -31,18 +34,20 @@ def catalog_kb():
     kb = InlineKeyboardBuilder()
     for pid, product in PRODUCTS.items():
         kb.button(
-            text=f"{product['name']} — {product['price']}₽",
-            callback_data=f"product_{pid}"
+            text=f"{product['name']} — {product['price']} ₽",
+            callback_data=f"product_{pid}",
         )
     kb.adjust(1)
     return kb.as_markup()
 
-def product_kb(pid):
+
+def product_kb(pid: int):
     kb = InlineKeyboardBuilder()
     kb.button(text="➕ В корзину", callback_data=f"add_{pid}")
     kb.button(text="🛒 Корзина", callback_data="cart")
     kb.adjust(1)
     return kb.as_markup()
+
 
 def cart_kb():
     kb = InlineKeyboardBuilder()
@@ -51,14 +56,29 @@ def cart_kb():
     kb.adjust(1)
     return kb.as_markup()
 
+
+def admin_kb(client_id: int):
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✉️ Написать клиенту",
+                    url=f"tg://user?id={client_id}",
+                )
+            ]
+        ]
+    )
+
 # ------------------ ХЭНДЛЕРЫ ------------------
 
-@dp.message(Command("start"))
+@dp.message(CommandStart())
 async def start(message: Message):
     await message.answer(
-        "🛍 Добро пожаловать в магазин!\n\nВыберите товар:",
-        reply_markup=catalog_kb()
+        "Здравствуйте! 👋\n"
+        "Выберите интересующий вас товар:",
+        reply_markup=catalog_kb(),
     )
+
 
 @dp.callback_query(F.data.startswith("product_"))
 async def product_view(call: CallbackQuery):
@@ -66,50 +86,49 @@ async def product_view(call: CallbackQuery):
     product = PRODUCTS[pid]
 
     await call.message.answer(
-        f"📦 <b>{product['name']}</b>\n"
-        f"💰 Цена: {product['price']}₽",
+        f"📦 {product['name']}\n"
+        f"💰 Цена: {product['price']} ₽",
         reply_markup=product_kb(pid),
-        parse_mode="HTML"
     )
     await call.answer()
 
+
 @dp.callback_query(F.data.startswith("add_"))
 async def add_to_cart(call: CallbackQuery):
-    pid = int(call.data.split("_")[1])
-    user_id = call.from_user.id
+    USER_CARTS.setdefault(call.from_user.id, []).append(
+        int(call.data.split("_")[1])
+    )
+    await call.answer("Добавлено в корзину")
 
-    USER_CARTS.setdefault(user_id, [])
-    USER_CARTS[user_id].append(pid)
-
-    await call.answer("✅ Добавлено в корзину")
 
 @dp.callback_query(F.data == "cart")
 async def show_cart(call: CallbackQuery):
-    user_id = call.from_user.id
-    cart = USER_CARTS.get(user_id, [])
+    cart = USER_CARTS.get(call.from_user.id, [])
 
     if not cart:
-        await call.message.answer("🛒 Корзина пуста")
+        await call.message.answer("🛒 Корзина пуста.")
+        await call.answer()
         return
 
-    text = "🛒 <b>Ваша корзина:</b>\n\n"
+    text = "🛒 Ваш заказ:\n\n"
     total = 0
-
     for pid in cart:
-        product = PRODUCTS[pid]
-        text += f"• {product['name']} — {product['price']}₽\n"
-        total += product["price"]
+        p = PRODUCTS[pid]
+        text += f"• {p['name']} — {p['price']} ₽\n"
+        total += p["price"]
 
-    text += f"\n💰 <b>Итого:</b> {total}₽"
+    text += f"\n💰 Итого: {total} ₽"
 
-    await call.message.answer(text, reply_markup=cart_kb(), parse_mode="HTML")
+    await call.message.answer(text, reply_markup=cart_kb())
     await call.answer()
+
 
 @dp.callback_query(F.data == "clear_cart")
 async def clear_cart(call: CallbackQuery):
     USER_CARTS[call.from_user.id] = []
-    await call.message.answer("❌ Корзина очищена")
+    await call.message.answer("❌ Корзина очищена.")
     await call.answer()
+
 
 @dp.callback_query(F.data == "order")
 async def make_order(call: CallbackQuery):
@@ -120,21 +139,33 @@ async def make_order(call: CallbackQuery):
         await call.answer("Корзина пуста", show_alert=True)
         return
 
-    text = "📩 <b>Новый заказ</b>\n\n"
+    text = "🆕 <b>Новый заказ</b>\n\n"
     total = 0
 
     for pid in cart:
-        product = PRODUCTS[pid]
-        text += f"• {product['name']} — {product['price']}₽\n"
-        total += product["price"]
+        p = PRODUCTS[pid]
+        text += f"• {p['name']} — {p['price']} ₽\n"
+        total += p["price"]
 
-    text += f"\n💰 Итого: {total}₽"
-    text += f"\n👤 @{user.username or user.full_name}"
+    text += f"\n💰 <b>Сумма:</b> {total} ₽"
+    text += f"\n\n👤 Клиент: {user.full_name}"
+    text += f"\n🆔 ID: <code>{user.id}</code>"
+    if user.username:
+        text += f"\n🔗 @{user.username}"
 
-    await bot.send_message(ADMIN_ID, text, parse_mode="HTML")
+    await bot.send_message(
+        ADMIN_ID,
+        text,
+        reply_markup=admin_kb(user.id),
+        parse_mode="HTML",
+    )
 
     USER_CARTS[user.id] = []
-    await call.message.answer("✅ Заказ отправлен! Мы скоро свяжемся с вами.")
+
+    await call.message.answer(
+        "✅ Заказ принят!\n"
+        "Менеджер свяжется с вами в ближайшее время."
+    )
     await call.answer()
 
 # ------------------ ЗАПУСК ------------------
@@ -144,11 +175,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-
-
-
-
-

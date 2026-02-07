@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_TOKEN = os.getenv("8211878720:AAH4hdC3g1VvETD_idbNFnGWqyLsmv4jt6Y")
-ADMIN_ID = int(os.getenv("5213273710"))
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 if not API_TOKEN:
     raise ValueError("BOT_TOKEN not set")
@@ -23,5 +23,6 @@ async def start(message: types.Message):
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
+
 
 
